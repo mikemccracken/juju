@@ -329,6 +329,8 @@ type ConfigMutator func(ConfigSetter) error
 type ConfigWriter interface {
 	// Write writes the agent configuration.
 	Write() error
+
+	Render() ([]byte, error)
 }
 
 type ConfigSetter interface {
@@ -611,7 +613,7 @@ func (c *configInternal) SetPassword(newPassword string) {
 }
 
 func (c *configInternal) Write() error {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return err
 	}
@@ -764,7 +766,7 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *configInternal) fileContents() ([]byte, error) {
+func (c *configInternal) Render() ([]byte, error) {
 	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
@@ -777,7 +779,7 @@ func (c *configInternal) fileContents() ([]byte, error) {
 
 // WriteCommands is defined on Config interface.
 func (c *configInternal) WriteCommands(renderer shell.Renderer) ([]string, error) {
-	data, err := c.fileContents()
+	data, err := c.Render()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
