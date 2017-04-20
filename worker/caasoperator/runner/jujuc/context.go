@@ -72,9 +72,8 @@ type relationHookContext interface {
 // ContextCAASApplication is the part of a hook context related to the application
 type ContextCAASApplication interface {
 	ApplicationName() string
-
-	// Config returns the current service configuration of the executing application
 	ConfigSettings() (charm.Settings, error)
+	RunContainer(ContainerInfo) error
 }
 
 // ContextStatus is the part of a hook context related to the unit's status.

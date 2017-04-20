@@ -299,6 +299,11 @@ func (ctx *HookContext) SetCaasUnitStatus(caasUnitStatus jujuc.StatusInfo) error
 	return nil
 }
 
+func (ctx *HookContext) RunContainer(containerInfo jujuc.ContainerInfo) error {
+	logger.Debugf("charm says to run container %q", containerInfo)
+	return nil // XXX TODO MMCC
+}
+
 // SetApplicationStatus will set the given status to the service to which this
 // caasoperator's belong.
 func (ctx *HookContext) SetApplicationStatus(serviceStatus jujuc.StatusInfo) error {
