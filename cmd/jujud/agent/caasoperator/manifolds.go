@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/dependency"
 	"github.com/juju/juju/worker/fortress"
-	//	"github.com/juju/juju/worker/fortress"
 
 	"github.com/juju/juju/worker/logsender"
 	//	"github.com/juju/juju/worker/meterstatus"
