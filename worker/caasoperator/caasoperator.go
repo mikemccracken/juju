@@ -157,19 +157,18 @@ func NewCaasOperator(caasoperatorParams *CaasOperatorParams) (*CaasOperator, err
 			return op.loop(caasoperatorParams.CaasOperatorTag)
 		},
 	})
-	logger.Errorf("NewCaasOperator: invoked catacomb")
+
 	return op, errors.Trace(err)
 }
 
 func (op *CaasOperator) loop(caasoperatortag names.ApplicationTag) (err error) {
-	logger.Errorf("Inside CaasOperator.loop")
+
 	if err := op.init(caasoperatortag); err != nil {
 		if err == jworker.ErrTerminateAgent {
 			return err
 		}
 		return errors.Annotatef(err, "failed to initialize caasoperator for %q", caasoperatortag)
 	}
-	//logger.Errorf("caas unit %q started", op.caasunit)
 
 	config, err := rest.InClusterConfig()
 	if err != nil {

@@ -43,14 +43,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			//config.HookRetryStrategyName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
-			logger.Errorf("In caasoperator manifold Start: new image")
 			if config.Clock == nil {
 				return nil, errors.NotValidf("missing Clock")
 			}
 			if config.MachineLockName == "" {
 				return nil, errors.NotValidf("missing MachineLockName")
 			}
-			logger.Errorf("collecting resources")
+
 			// Collect all required resources.
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
@@ -67,13 +66,8 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err := context.Get(config.CharmDirName, &charmDirGuard); err != nil {
 				return nil, err
 			}
-			// logger.Errorf("getting retry strategy")
-			// var hookRetryStrategy params.RetryStrategy
-			// if err := context.Get(config.HookRetryStrategyName, &hookRetryStrategy); err != nil {
-			// 	return nil, err
-			// }
 
-			//			downloader := api.NewCharmDownloader(apiConn.Client())
+			//downloader := api.NewCharmDownloader(apiConn.Client())
 			logger.Errorf("getting agent config")
 			manifoldConfig := config
 			// Configure and start the caasoperator.
@@ -84,7 +78,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.Errorf("expected a caasoperator tag, got %v", tag)
 			}
 			caasoperatorFacade := caasoperator.NewState(apiConn, caasoperatorTag)
-			logger.Errorf("creating caasoperator")
 			caasoperator, err := NewCaasOperator(&CaasOperatorParams{
 				CaasOperatorFacade: caasoperatorFacade,
 				CaasOperatorTag:    caasoperatorTag,
