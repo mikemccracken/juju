@@ -72,12 +72,12 @@ func newStateForVersionFn(version int) func(base.APICaller, names.ApplicationTag
 	}
 }
 
-// newStateV4 creates a new client-side CAASOperator facade, version 4.
-var newStateV4 = newStateForVersionFn(4)
+// newStateV1 creates a new client-side CAASOperator facade, version 4.
+var newStateV1 = newStateForVersionFn(1)
 
 // NewState creates a new client-side CAASOperator facade.
 // Defined like this to allow patching during tests.
-var NewState = newStateV4
+var NewState = newStateV1
 
 // BestAPIVersion returns the API version that we were able to
 // determine is supported by both the client and the API Server.

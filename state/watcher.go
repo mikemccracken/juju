@@ -1421,6 +1421,11 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	return newEntityWatcher(u.st, settingsC, u.st.docID(settingsKey)), nil
 }
 
+func (app *CAASApplication) WatchConfigSettings() (NotifyWatcher, error) {
+	settingsKey := applicationSettingsKey(app.doc.Name, app.doc.CharmURL)
+	return newEntityWatcher(app.st, settingsC, app.st.docID(settingsKey)), nil
+}
+
 // WatchMeterStatus returns a watcher observing changes that affect the meter status
 // of a unit.
 func (u *Unit) WatchMeterStatus() NotifyWatcher {

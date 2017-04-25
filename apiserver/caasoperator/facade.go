@@ -451,7 +451,7 @@ func (f *Facade) ConfigSettings(args params.Entities) (params.ConfigSettingsResu
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
+			//var unit *state.Unit
 			app, err := f.st.CAASApplication(tag.Id())
 			if err == nil {
 				var settings charm.Settings
