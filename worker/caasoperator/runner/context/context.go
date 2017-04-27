@@ -16,6 +16,10 @@ import (
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v6-unstable"
 
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/pkg/api/v1"
+	"k8s.io/client-go/rest"
+
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/apiserver/params"
@@ -300,8 +304,39 @@ func (ctx *HookContext) SetCaasUnitStatus(caasUnitStatus jujuc.StatusInfo) error
 }
 
 func (ctx *HookContext) RunContainer(containerInfo jujuc.ContainerInfo) error {
-	logger.Debugf("charm says to run container %q", containerInfo)
-	return nil // XXX TODO MMCC
+
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	client, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	logger.Debugf("deploying image %v", containerInfo)
+
+	containerName := ctx.applicationName + "-" + containerInfo.Name
+	spec := &v1.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: containerName,
+			Labels: map[string]string{
+				"juju-app-name": ctx.applicationName,
+			},
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{{
+				Name:            containerName,
+				Image:           containerInfo.Image,
+				ImagePullPolicy: v1.PullIfNotPresent,
+				Args:            []string{}, // MMCC TODO
+			}},
+		},
+	}
+	_, err = client.CoreV1().Pods("default").Create(spec) // XXX TODO namespace
+	return errors.Trace(err)
+
 }
 
 // SetApplicationStatus will set the given status to the service to which this
