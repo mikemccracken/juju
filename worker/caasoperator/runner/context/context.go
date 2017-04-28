@@ -157,10 +157,7 @@ type HookContext struct {
 	// closed when the current hook is committed.
 	pendingPorts map[PortRange]PortRangeInfo
 
-	// machinePorts contains cached information about all opened port
-	// ranges on the caasoperator's assigned machine, mapped to the caasoperator that
-	// opened each range and the relevant relation.
-	machinePorts map[network.PortRange]params.RelationUnit
+	openedPortRanges []network.PortRange
 
 	// process is the process of the command that is being run in the local context,
 	// like a juju-run command or a hook
@@ -516,35 +513,6 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 			}
 		}
 	}
-
-	// for rangeKey, rangeInfo := range ctx.pendingPorts {
-	// 	if writeChanges {
-	// 		var e error
-	// 		var op string
-	// 		if rangeInfo.ShouldOpen {
-	// 			e = ctx.caasoperator.OpenPorts(
-	// 				rangeKey.Ports.Protocol,
-	// 				rangeKey.Ports.FromPort,
-	// 				rangeKey.Ports.ToPort,
-	// 			)
-	// 			op = "open"
-	// 		} else {
-	// 			e = ctx.caasoperator.ClosePorts(
-	// 				rangeKey.Ports.Protocol,
-	// 				rangeKey.Ports.FromPort,
-	// 				rangeKey.Ports.ToPort,
-	// 			)
-	// 			op = "close"
-	// 		}
-	// 		if e != nil {
-	// 			e = errors.Annotatef(e, "cannot %s %v", op, rangeKey.Ports)
-	// 			logger.Errorf("%v", e)
-	// 			if ctxErr == nil {
-	// 				ctxErr = e
-	// 			}
-	// 		}
-	// 	}
-	// }
 
 	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
 	//                             changes in one api call to minimize the risk

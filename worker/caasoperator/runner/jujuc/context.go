@@ -43,7 +43,7 @@ type HookContext interface {
 	ContextInstance
 	// ContextNetworking
 	// ContextMetrics
-	//	ContextStorage
+	// ContextStorage
 	ContextComponents
 	// ContextRelations
 	ContextVersion

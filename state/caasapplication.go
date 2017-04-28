@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/status"
+	"github.com/juju/juju/network"
 )
 
 // CAASApplication represents the state of an application.
@@ -671,3 +672,4 @@ type addCAASApplicationOpsArgs struct {
 	appDoc   *caasApplicationDoc
 	settings map[string]interface{}
 }
+

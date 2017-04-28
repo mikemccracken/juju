@@ -267,7 +267,8 @@ func allCollections() collectionSchema {
 				Key: []string{"model-uuid", "application"},
 			}},
 		},
-		minUnitsC: {},
+		caasLoadBalancerC: {},
+		minUnitsC:         {},
 
 		// This collection holds documents that indicate units which are queued
 		// to be assigned to machines. It is used exclusively by the
@@ -479,6 +480,7 @@ const (
 	guisettingsC             = "guisettings"
 	instanceDataC            = "instanceData"
 	leasesC                  = "leases"
+	caasLoadBalancerC        = "caasloadbalancer"
 	machinesC                = "machines"
 	machineRemovalsC         = "machineremovals"
 	meterStatusC             = "meterStatus"
