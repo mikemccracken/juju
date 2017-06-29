@@ -4,7 +4,12 @@
 package jujuc
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/juju/errors"
 
 	"gopkg.in/juju/charm.v6-unstable"
 
@@ -31,13 +36,14 @@ const (
 // depend on to interact with the rest of the system.
 type Context interface {
 	HookContext
-	//	relationHookContext
+	relationHookContext
 	//	actionHookContext
 }
 
 // HookContext represents the information and functionality that is
 // common to all charm hooks.
 type HookContext interface {
+	ContextUnit
 	ContextCAASApplication
 	ContextStatus
 	ContextInstance
@@ -45,7 +51,7 @@ type HookContext interface {
 	// ContextMetrics
 	//	ContextStorage
 	ContextComponents
-	// ContextRelations
+	ContextRelations
 	ContextVersion
 }
 
@@ -70,10 +76,19 @@ type relationHookContext interface {
 	RemoteUnitName() (string, error)
 }
 
+// ContextUnit is the part of a hook context related to the unit.
+type ContextUnit interface {
+	// UnitName returns the executing unit's name.
+	UnitName() string
+
+	// Config returns the current service configuration of the executing unit.
+	ConfigSettings() (charm.Settings, error)
+}
+
 // ContextCAASApplication is the part of a hook context related to the application
 type ContextCAASApplication interface {
 	ApplicationName() string
-	ConfigSettings() (charm.Settings, error)
+	//	ConfigSettings() (charm.Settings, error)
 	RunContainer(ContainerInfo) error
 	KillContainer(string) error
 	AllCAASUnits() ([]caasoperator.CAASUnit, error)
@@ -214,4 +229,51 @@ type Settings interface {
 	Map() params.Settings
 	Set(string, string)
 	Delete(string)
+}
+
+// newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
+// ids in ctx.
+func newRelationIdValue(ctx Context, result *int) (*relationIdValue, error) {
+	v := &relationIdValue{result: result, ctx: ctx}
+	id := -1
+	if r, err := ctx.HookRelation(); err == nil {
+		id = r.Id()
+		v.value = r.FakeId()
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	*result = id
+	return v, nil
+}
+
+// relationIdValue implements gnuflag.Value for use in relation commands.
+type relationIdValue struct {
+	result *int
+	ctx    Context
+	value  string
+}
+
+// String returns the current value.
+func (v *relationIdValue) String() string {
+	return v.value
+}
+
+// Set interprets value as a relation id, if possible, and returns an error
+// if it is not known to the system. The parsed relation id will be written
+// to v.result.
+func (v *relationIdValue) Set(value string) error {
+	trim := value
+	if idx := strings.LastIndex(trim, ":"); idx != -1 {
+		trim = trim[idx+1:]
+	}
+	id, err := strconv.Atoi(trim)
+	if err != nil {
+		return fmt.Errorf("invalid relation id")
+	}
+	if _, err := v.ctx.Relation(id); err != nil {
+		return errors.Trace(err)
+	}
+	*v.result = id
+	v.value = value
+	return nil
 }

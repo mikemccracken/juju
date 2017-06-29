@@ -189,23 +189,22 @@ func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, 
 // to construct ContextRelations for a fresh context.
 func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 	contextRelations := map[int]*ContextRelation{}
-	return contextRelations // XXX CAAS
-	// relationInfos := f.getRelationInfos()
-	// relationCaches := map[int]*RelationCache{}
-	// for id, info := range relationInfos {
-	// 	relationUnit := info.RelationUnit
-	// 	memberNames := info.MemberNames
-	// 	cache, found := f.relationCaches[id]
-	// 	if found {
-	// 		cache.Prune(memberNames)
-	// 	} else {
-	// 		cache = NewRelationCache(relationUnit.ReadSettings, memberNames)
-	// 	}
-	// 	relationCaches[id] = cache
-	// 	contextRelations[id] = NewContextRelation(relationUnit, cache)
-	// }
-	// f.relationCaches = relationCaches
-	// return contextRelations
+	relationInfos := f.getRelationInfos()
+	relationCaches := map[int]*RelationCache{}
+	for id, info := range relationInfos {
+		relationUnit := info.RelationUnit
+		memberNames := info.MemberNames
+		cache, found := f.relationCaches[id]
+		if found {
+			cache.Prune(memberNames)
+		} else {
+			cache = NewRelationCache(relationUnit.ReadSettings, memberNames)
+		}
+		relationCaches[id] = cache
+		contextRelations[id] = NewContextRelation(relationUnit, cache)
+	}
+	f.relationCaches = relationCaches
+	return contextRelations
 }
 
 // updateContext fills in all unspecialized fields that require an API call to
@@ -216,38 +215,38 @@ func (f *contextFactory) getContextRelations() map[int]*ContextRelation {
 // to via hooks. Furthermore, the fact that we make multiple API calls at this
 // time, rather than grabbing everything we need in one go, is unforgivably yucky.
 func (f *contextFactory) updateContext(ctx *HookContext) (err error) {
-	// XXX
-	// defer errors.Trace(err)
+	defer errors.Trace(err)
 
 	// ctx.apiAddrs, err = f.state.APIAddresses()
 	// if err != nil {
 	// 	return err
 	// }
-	// // ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
-	// // if err != nil {
-	// // 	return errors.Trace(err)
-	// // }
+
+	// ctx.machinePorts, err = f.state.AllMachinePorts(f.machineTag)
+	// if err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	// statusCode, statusInfo, err := f.caasUnit.MeterStatus()
 	// if err != nil {
 	// 	return errors.Annotate(err, "could not retrieve meter status for unit")
 	// }
-	// ctx.meterStatus = &meterStatus{
-	// 	code: statusCode,
-	// 	info: statusInfo,
-	// }
+	ctx.meterStatus = &meterStatus{
+		code: "NOT SET",
+		info: "XXX CAAS",
+	}
 
-	// // TODO(fwereade) 23-10-2014 bug 1384572
-	// // Nothing here should ever be getting the environ config directly.
+	// TODO(fwereade) 23-10-2014 bug 1384572
+	// Nothing here should ever be getting the environ config directly.
 	// modelConfig, err := f.state.ModelConfig()
 	// if err != nil {
 	// 	return err
 	// }
-	// ctx.proxySettings = modelConfig.ProxySettings()
+	//ctx.proxySettings = modelConfig.ProxySettings() // XXX CAAS MMCC
 
-	// // Calling these last, because there's a potential race: they're not guaranteed
-	// // to be set in time to be needed for a hook. If they're not, we just leave them
-	// // unset as we always have; this isn't great but it's about behaviour preservation.
+	// Calling these last, because there's a potential race: they're not guaranteed
+	// to be set in time to be needed for a hook. If they're not, we just leave them
+	// unset as we always have; this isn't great but it's about behaviour preservation.
 	// ctx.publicAddress, err = f.caasUnit.PublicAddress()
 	// if err != nil && !params.IsCodeNoAddressSet(err) {
 	// 	return err

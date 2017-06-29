@@ -52,6 +52,10 @@ var baseCommands = map[string]creator{
 	"run-container" + cmdSuffix:           NewRunContainerCommand,
 	"kill-container" + cmdSuffix:          NewKillContainerCommand,
 	"list-units" + cmdSuffix:              NewListUnitsCommand,
+	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
+	"relation-list" + cmdSuffix:           NewRelationListCommand,
+	"relation-set" + cmdSuffix:            NewRelationSetCommand,
+	"relation-get" + cmdSuffix:            NewRelationGetCommand,
 }
 
 func allEnabledCommands() map[string]creator {

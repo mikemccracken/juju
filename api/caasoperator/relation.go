@@ -52,7 +52,12 @@ func (r *Relation) Life() params.Life {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	result, err := r.st.relation(r.tag, r.st.applicationTag)
+	fakeCaasUnitTag, err := names.ParseUnitTag("unit-" + r.st.applicationTag.Id() + "/0")
+	if err != nil {
+		return err
+	}
+
+	result, err := r.st.relation(r.tag, fakeCaasUnitTag)
 	if err != nil {
 		return err
 	}
@@ -81,7 +86,12 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
 	// unit, and we can find out its application name.
-	result, err := r.st.relation(r.tag, r.st.applicationTag)
+	fakeCaasUnitTag, err := names.ParseUnitTag("unit-" + r.st.applicationTag.Id() + "/0")
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := r.st.relation(r.tag, fakeCaasUnitTag)
 	if err != nil {
 		return nil, err
 	}

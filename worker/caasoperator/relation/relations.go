@@ -10,7 +10,7 @@ import (
 	corecharm "gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charm.v6-unstable/hooks"
 	"gopkg.in/juju/names.v2"
-	//	worker "gopkg.in/juju/worker.v1"
+	worker "gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/caasoperator"
 	"github.com/juju/juju/apiserver/params"
@@ -63,7 +63,9 @@ func (s *relationsResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+	logger.Debugf("relationsresolver NextOp starting")
 	hook, err := s.relations.NextHook(localState, remoteState)
+	logger.Debugf("relationsresolver NextHook is %v (err=%v)", hook, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -154,23 +156,28 @@ func (r *relations) NextHook(
 	localState resolver.LocalState,
 	remoteState remotestate.Snapshot,
 ) (hook.Info, error) {
+	logger.Debugf("relations NextHook starting, about to r.update() - remoteState.Relations=%v", remoteState)
 	// Add/remove local relation state; enter and leave scope as necessary.
 	if err := r.update(remoteState.Relations); err != nil {
 		return hook.Info{}, errors.Trace(err)
 	}
-
+	logger.Debugf("relations NextHook starting, r.update() done. localState.Kind =%v", localState.Kind)
 	if localState.Kind != operation.Continue {
 		return hook.Info{}, resolver.ErrNoOperation
 	}
 
 	// See if any of the relations have operations to perform.
 	for relationId, relationSnapshot := range remoteState.Relations {
+		logger.Debugf(" - checking relationId %v relationSnapshot %v", relationId, relationSnapshot)
 		relationer, ok := r.relationers[relationId]
+		logger.Debugf(" - got relationer %v, ok %v ", relationer, ok)
 		if !ok || relationer.IsImplicit() {
+			logger.Debugf(" - bailing on ops loop in NextHook")
 			continue
 		}
 		var remoteBroken bool
 		if remoteState.Life == params.Dying || relationSnapshot.Life == params.Dying {
+			logger.Debugf(" - remoteBroken: remoteState.Life=%v, relationSnapshot.Life=%v", remoteState.Life, relationSnapshot.Life)
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
@@ -179,10 +186,13 @@ func (r *relations) NextHook(
 		// then the relation should be broken.
 		hook, err := nextRelationHook(relationer.dir.State(), relationSnapshot, remoteBroken)
 		if err == resolver.ErrNoOperation {
+			logger.Debugf(" NextHook: nextrelationhook returned ErrNoOperation")
 			continue
 		}
+		logger.Debugf(" NextHook: nextrelationhook returned hook=%v", hook)
 		return hook, err
 	}
+	logger.Debugf("NextHook done with no operation found. reutrning ErrNoOperation")
 	return hook.Info{}, resolver.ErrNoOperation
 }
 
@@ -195,11 +205,12 @@ func nextRelationHook(
 	remote remotestate.RelationSnapshot,
 	remoteBroken bool,
 ) (hook.Info, error) {
-
+	logger.Debugf("+ nextRelationHook() starting") // MMCC we are not getting here.
 	// If there's a guaranteed next hook, return that.
 	relationId := local.RelationId
 	if local.ChangedPending != "" {
 		unitName := local.ChangedPending
+		logger.Debugf("+ nextRelationHook: local.ChangedPending is %v, returning RelationChanged", local.ChangedPending)
 		return hook.Info{
 			Kind:          hooks.RelationChanged,
 			RelationId:    relationId,
@@ -218,7 +229,7 @@ func nextRelationHook(
 		allUnitNames.Add(unitName)
 	}
 	sortedUnitNames := allUnitNames.SortedValues()
-
+	logger.Debugf("+ nextRelationHook: sortedUnitNames is %v", sortedUnitNames)
 	// If there are any locally known units that are no longer reflected in
 	// remote state, depart them.
 	for _, unitName := range sortedUnitNames {
@@ -353,7 +364,9 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		if relationSnapshot.Life != params.Alive {
 			continue
 		}
+		logger.Debugf("about to call RelationById(%v)", id)
 		rel, err := r.st.RelationById(id)
+		logger.Debugf("got rel=%v, err=%v", rel, err)
 		if err != nil {
 			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 				continue
@@ -396,12 +409,14 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 // which case it will return resolver.ErrLoopAborted.
 func (r *relations) add(rel *caasoperator.Relation, dir *StateDir) (err error) {
 	logger.Infof("relations.add(): %q, storing state in %v", rel, dir)
-	ru, err := rel.CAASUnit(r.caasUnit)
+	ru, err := rel.Unit(r.caasUnit)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	relationer := NewRelationer(ru, dir)
+	logger.Debugf("  = about to call r.caasUnit.Watch() on caasUnit=%v", r.caasUnit)
 	unitWatcher, err := r.caasUnit.Watch()
+	logger.Debugf("  = got unitwatcher=%v", unitWatcher)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -414,6 +429,7 @@ func (r *relations) add(rel *caasoperator.Relation, dir *StateDir) (err error) {
 			}
 		}
 	}()
+	logger.Debugf("=Starting watcher loop in add()")
 	for {
 		select {
 		case <-r.abort:
@@ -424,14 +440,16 @@ func (r *relations) add(rel *caasoperator.Relation, dir *StateDir) (err error) {
 			if !ok {
 				return errors.New("unit watcher closed")
 			}
+			logger.Debugf("got unitWatcher changes, about to call relationer.Join()")
 			err := relationer.Join()
+			logger.Errorf("error calling relationer.Join(): %v", err)
 			if params.IsCodeCannotEnterScopeYet(err) {
-				logger.Infof("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
+				logger.Debugf("cannot enter scope for relation %q; waiting for subordinate to be removed", rel)
 				continue
 			} else if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Infof("joined relation %q", rel)
+			logger.Debugf("joined relation %q", rel)
 			r.relationers[rel.Id()] = relationer
 			return nil
 		}

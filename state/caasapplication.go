@@ -658,10 +658,9 @@ func caasApplicationRelations(st *CAASState, name string) (relations []*Relation
 	if err != nil {
 		return nil, err
 	}
-	// XXX
-	// for _, v := range docs {
-	// 	relations = append(relations, newRelation(st, &v))
-	// }
+	for _, v := range docs {
+		relations = append(relations, newRelation(st, &v))
+	}
 	return relations, nil
 }
 

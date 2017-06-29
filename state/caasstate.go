@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"runtime/debug"
 	"sort"
 	"strings"
 
@@ -185,8 +186,10 @@ func (st *CAASState) FindEntity(tag names.Tag) (Entity, error) {
 		return st.User(tag)
 	case names.ApplicationTag:
 		return st.CAASApplication(id)
+	case names.UnitTag:
+		return st.CAASUnit(id)
 	default:
-		return nil, errors.Errorf("unsupported tag %T", tag)
+		return nil, errors.Errorf("unsupported tag %T for caasstate, from %s", tag, debug.Stack())
 	}
 }
 
@@ -594,6 +597,7 @@ func (st *CAASState) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// we'll need to re-validate application sanity.
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		logger.Debugf("in buildTxn for AddRelation. attempt %d", attempt)
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st, relationsC, key); err != nil {
 			return nil, errors.Trace(err)
@@ -608,6 +612,7 @@ func (st *CAASState) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 			if svc.IsRemote() {
+				logger.Debugf("in buildTxn for AddRelation. svc.IsRemote is true, so building remote op")
 				ops = append(ops, txn.Op{
 					C:      remoteApplicationsC,
 					Id:     st.docID(ep.ApplicationName),
@@ -615,6 +620,7 @@ func (st *CAASState) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 					Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
 				})
 			} else {
+				logger.Debugf("in buildTxn for AddRelation. svc.IsRemote is false, so building local op")
 				localSvc := svc.(*CAASApplication)
 				ch, _, err := localSvc.Charm()
 				if err != nil {

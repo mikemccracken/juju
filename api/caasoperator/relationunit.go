@@ -77,8 +77,10 @@ func (ru *RelationUnit) EnterScope() error {
 			Unit:     ru.unit.tag.String(),
 		}},
 	}
+	logger.Debugf(" +++ about to call EnterScope facade with args=%v", args)
 	err := ru.st.facade.FacadeCall("EnterScope", args, &result)
 	if err != nil {
+		logger.Errorf("error from facade EnterScope: %v", err)
 		return err
 	}
 	return result.OneError()

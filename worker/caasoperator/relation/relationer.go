@@ -55,9 +55,11 @@ func (r *Relationer) Join() error {
 	// We need to make sure the state directory exists before we join the
 	// relation, lest a subsequent ReadAllStateDirs report local state that
 	// doesn't include relations recorded in remote state.
+	logger.Debugf(" ++ Ensuring directory %v", r.dir.path)
 	if err := r.dir.Ensure(); err != nil {
 		return err
 	}
+	logger.Debugf(" ++ ensured directory, calling r.ru.EnterScope()")
 	// caasoperator.RelationUnit.EnterScope() sets the unit's private address
 	// internally automatically, so no need to set it here.
 	return r.ru.EnterScope()

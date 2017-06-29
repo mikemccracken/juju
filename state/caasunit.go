@@ -358,6 +358,7 @@ func (u *CAASUnit) Resolved() ResolvedMode {
 // RelationsJoined returns the relations for which the unit has entered scope
 // and neither left it nor prepared to leave it
 func (u *CAASUnit) RelationsJoined() ([]*Relation, error) {
+	logger.Debugf("RelationsJoined")
 	return u.relations(func(ru *RelationUnit) (bool, error) {
 		return ru.Joined()
 	})
@@ -366,6 +367,7 @@ func (u *CAASUnit) RelationsJoined() ([]*Relation, error) {
 // RelationsInScope returns the relations for which the unit has entered scope
 // and not left it.
 func (u *CAASUnit) RelationsInScope() ([]*Relation, error) {
+	logger.Debugf("RelationsInScope")
 	return u.relations(func(ru *RelationUnit) (bool, error) {
 		return ru.InScope()
 	})
@@ -373,10 +375,13 @@ func (u *CAASUnit) RelationsInScope() ([]*Relation, error) {
 
 // relations implements RelationsJoined and RelationsInScope.
 func (u *CAASUnit) relations(predicate relationPredicate) ([]*Relation, error) {
+	logger.Debugf("getting applicationRelations for CAASApplication")
 	candidates, err := applicationRelations(u.st, u.doc.CAASApplication)
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Debugf("in relations(), candidates is %v", candidates)
 	var filtered []*Relation
 	for _, relation := range candidates {
 		relationUnit, err := relation.CAASUnit(u)
@@ -389,6 +394,7 @@ func (u *CAASUnit) relations(predicate relationPredicate) ([]*Relation, error) {
 			filtered = append(filtered, relation)
 		}
 	}
+	logger.Debugf("in relations(), filtered is %v", filtered)
 	return filtered, nil
 }
 

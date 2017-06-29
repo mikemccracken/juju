@@ -161,6 +161,15 @@ func (w *RemoteStateWatcher) setUp(applicationtag names.ApplicationTag) (err err
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	fakeCaasUnitTag, err := names.ParseUnitTag("unit-" + applicationtag.Id() + "/0")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.caasUnit, err = w.st.CAASUnit(fakeCaasUnitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -309,7 +318,7 @@ func (w *RemoteStateWatcher) loop(caasApplicationTag names.ApplicationTag) (err 
 		// 	observedEvent(&seenActionsChange)
 
 		case keys, ok := <-relationsw.Changes():
-			logger.Debugf("got relations change: ok=%t", ok)
+			logger.Debugf("got relations change: ok=%t, keys=%v", ok, keys)
 			if !ok {
 				return errors.New("relations watcher closed")
 			}
@@ -445,40 +454,52 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 	logger.Debugf("in RemoteStateWatcher.relationsChanged, keys = %v", keys)
 
 	for _, key := range keys {
+		logger.Debugf("^^ examining key %v", key)
 		relationTag := names.NewRelationTag(key)
+		logger.Debugf("^^ got relationTag: %v", relationTag)
 		rel, err := w.st.Relation(relationTag)
+		logger.Debugf("^^ got rel=%v, err=%v", rel, err)
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+			logger.Debugf("^^ params.IsCodeNotFoundOrCodeUnauthorized was true")
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
 			if ruw, ok := w.relations[relationTag]; ok {
+				logger.Debugf("^^ stopping relation unit watcher")
 				worker.Stop(ruw)
 				delete(w.relations, relationTag)
 				delete(w.current.Relations, ruw.relationId)
 			}
 		} else if err != nil {
+			logger.Errorf("returning with err %v", err)
 			return errors.Trace(err)
 		} else {
 			if _, ok := w.relations[relationTag]; ok {
+				logger.Debugf("^^ Already watching relation %v, updating snapshot and bailing", relationTag)
 				relationSnapshot := w.current.Relations[rel.Id()]
 				relationSnapshot.Life = rel.Life()
 				w.current.Relations[rel.Id()] = relationSnapshot
 				continue
 			}
+			logger.Debugf("^^ about to call WatchRelationUnits(%v, %v)", relationTag, w.caasUnit.Tag())
 			ruw, err := w.st.WatchRelationUnits(relationTag, w.caasUnit.Tag())
 			if err != nil {
 				return errors.Trace(err)
 			}
+			logger.Debugf("^^ adding to catacomb")
 			// Because of the delay before handing off responsibility to
 			// newRelationUnitsWatcher below, add to our own catacomb to
 			// ensure errors get picked up if they happen.
 			if err := w.catacomb.Add(ruw); err != nil {
 				return errors.Trace(err)
 			}
+			logger.Debugf("^^ calling watchRelationUnits")
 			if err := w.watchRelationUnits(rel, relationTag, ruw); err != nil {
+				logger.Errorf("^^ error from watchRelationUnits: %v", err)
 				return errors.Trace(err)
 			}
 		}
 	}
+	logger.Debugf("successful relationsChanged()")
 	return nil
 }
 
@@ -496,6 +517,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
 	case change, ok := <-ruw.Changes():
+		logger.Debugf("^^^ Got change %v from ruw", change)
 		if !ok {
 			return errors.New("relation units watcher closed")
 		}
@@ -503,10 +525,12 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 			relationSnapshot.Members[unit] = settings.Version
 		}
 	}
+	logger.Debugf("getting new innerRUW from newRelationUnitsWatcher")
 	innerRUW, err := newRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Debugf("got innerRUW from newRelationUnitsWatcher: %v", innerRUW)
 	if err := w.catacomb.Add(innerRUW); err != nil {
 		return errors.Trace(err)
 	}

@@ -1364,6 +1364,11 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, unitsC, u.doc.DocID)
 }
 
+// Watch returns a watcher for observing changes to a unit.
+func (u *CAASUnit) Watch() NotifyWatcher {
+	return newEntityWatcher(u.st, caasUnitsC, u.doc.DocID)
+}
+
 // Watch returns a watcher for observing changes to a model.
 func (e *Model) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, modelsC, e.doc.UUID)

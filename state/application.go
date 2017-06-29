@@ -1423,6 +1423,7 @@ func applicationRelations(st modelBackend, name string) (relations []*Relation, 
 	relationsCollection, closer := st.db().GetCollection(relationsC)
 	defer closer()
 
+	logger.Debugf("Looking for endpoints for application %s", name)
 	docs := []relationDoc{}
 	err = relationsCollection.Find(bson.D{{"endpoints.applicationname", name}}).All(&docs)
 	if err != nil {

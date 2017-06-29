@@ -252,15 +252,14 @@ func (op *CaasOperator) loop(applicationTag names.ApplicationTag) (err error) {
 			// error state.
 			return nil
 		}
-		return nil //setAgentStatus(op, status.Idle, "", nil)
+		return nil // setAgentStatus(op, status.Idle, "", nil)
 	}
 
 	clearResolved := func() error {
-		/* MMCC - need to know which unit to clear
 		if err := op.caasunit.ClearResolved(); err != nil {
 			return errors.Trace(err)
 		}
-		*/
+
 		watcher.ClearResolvedMode()
 		return nil
 	}
@@ -411,7 +410,7 @@ func (op *CaasOperator) init(caasapplicationtag names.ApplicationTag) (err error
 
 	relations, err := relation.NewRelations(
 		op.st, op.caasunit.Tag(), op.paths.State.CharmDir,
-		op.paths.State.CharmDir, op.catacomb.Dying(),
+		op.paths.State.RelationsDir, op.catacomb.Dying(),
 	)
 	if err != nil {
 		return errors.Annotatef(err, "cannot create relations for unit %v",
@@ -437,7 +436,7 @@ func (op *CaasOperator) init(caasapplicationtag names.ApplicationTag) (err error
 
 	contextFactory, err := context.NewContextFactory(
 		op.st, caasapplicationtag,
-		nil, // XXX op.relations.GetInfo,
+		op.relations.GetInfo,
 		op.paths, op.clock,
 	)
 	if err != nil {

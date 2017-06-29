@@ -59,6 +59,7 @@ var mutex = sync.Mutex{}
 // needed by components.
 type ComponentConfig struct {
 	AppName   string
+	UnitName  string
 	DataDir   string
 	APICaller base.APICaller
 }
@@ -91,7 +92,8 @@ type HookProcess interface {
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	app *caasoperator.CAASApplication
+	app  *caasoperator.CAASApplication
+	unit *caasoperator.CAASUnit
 
 	// state is the handle to the caasoperator State so that HookContext can make
 	// API calls on the stateservice.
@@ -126,6 +128,7 @@ type HookContext struct {
 
 	// applicationName is the human friendly name of the local application.
 	applicationName string
+	unitName        string
 
 	// status is the status of the local caasoperator.
 	status *jujuc.StatusInfo
@@ -193,6 +196,7 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 
 	facade := ctx.state.Facade()
 	config := ComponentConfig{
+		UnitName:  ctx.unit.Name(),
 		AppName:   ctx.app.Name(),
 		DataDir:   ctx.componentDir(name),
 		APICaller: facade.RawAPICaller(),
@@ -255,6 +259,10 @@ func (ctx *HookContext) Id() string {
 
 func (ctx *HookContext) ApplicationName() string {
 	return ctx.applicationName
+}
+
+func (ctx *HookContext) UnitName() string {
+	return ctx.unitName
 }
 
 // ApplicationStatus returns the status for the application and all the caasunits on
@@ -427,21 +435,22 @@ func (context *HookContext) HookVars(paths Paths) ([]string, error) {
 		"JUJU_CONTEXT_ID="+context.id,
 		"JUJU_AGENT_SOCKET="+paths.GetJujucSocket(),
 		"JUJU_APPLICATION_NAME="+context.applicationName,
+		"JUJU_UNIT_NAME="+context.unitName,
 		"JUJU_MODEL_UUID="+context.uuid,
 		"JUJU_MODEL_NAME="+context.envName,
 		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
 	// "JUJU_METER_STATUS="+context.meterStatus.code,
 	// "JUJU_METER_INFO="+context.meterStatus.info,
 	)
-	// if r, err := context.HookRelation(); err == nil {
-	// 	vars = append(vars,
-	// 		"JUJU_RELATION="+r.Name(),
-	// 		"JUJU_RELATION_ID="+r.FakeId(),
-	// 		"JUJU_REMOTE_UNIT="+context.remoteUnitName,
-	// 	)
-	// } else if !errors.IsNotFound(err) {
-	// 	return nil, errors.Trace(err)
-	// }
+	if r, err := context.HookRelation(); err == nil {
+		vars = append(vars,
+			"JUJU_RELATION="+r.Name(),
+			"JUJU_RELATION_ID="+r.FakeId(),
+			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
+		)
+	} else if !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
 	return append(vars, OSDependentEnvVars(paths)...), nil
 }
 
@@ -635,4 +644,31 @@ func (ctx *HookContext) SetApplicationWorkloadVersion(version string) error {
 	// }
 	// return result.OneError()
 	return errors.NotImplementedf("method")
+}
+
+func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, error) {
+	return ctx.Relation(ctx.relationId)
+}
+
+func (ctx *HookContext) RemoteUnitName() (string, error) {
+	if ctx.remoteUnitName == "" {
+		return "", errors.NotFoundf("remote unit")
+	}
+	return ctx.remoteUnitName, nil
+}
+
+func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
+	r, found := ctx.relations[id]
+	if !found {
+		return nil, errors.NotFoundf("relation")
+	}
+	return r, nil
+}
+
+func (ctx *HookContext) RelationIds() ([]int, error) {
+	ids := []int{}
+	for id := range ctx.relations {
+		ids = append(ids, id)
+	}
+	return ids, nil
 }

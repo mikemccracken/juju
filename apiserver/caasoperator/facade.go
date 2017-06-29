@@ -6,6 +6,7 @@ package caasoperator
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -37,6 +38,7 @@ type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 	app       *state.CAASApplication
+	caasUnit  *state.CAASUnit
 }
 
 func NewFacade(ctx facade.Context) (*Facade, error) {
@@ -47,6 +49,7 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 	// 	return nil, common.ErrPerm
 	// }
 	var app *state.CAASApplication
+	var caasUnit *state.CAASUnit
 	var err error
 	switch tag := authorizer.GetAuthTag().(type) {
 	case names.ApplicationTag:
@@ -54,6 +57,16 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+		fakeCaasUnitTag, err := names.ParseUnitTag("unit-" + tag.Id() + "/0")
+		if err != nil {
+			return nil, err
+		}
+
+		caasUnit, err = st.CAASUnit(fakeCaasUnitTag.Id())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
 	default:
 		return nil, errors.Errorf("expected names.ApplicationTag, got %T", tag)
 	}
@@ -76,6 +89,7 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 		auth:      authorizer,
 		resources: resources,
 		app:       app,
+		caasUnit:  caasUnit,
 	}, nil
 }
 
@@ -85,15 +99,10 @@ func accessAll(names.Tag) bool {
 
 // Resolved returns the current resolved setting for each given unit.
 func (f *Facade) Resolved(args params.Entities) (params.ResolvedModeResults, error) {
-	return params.ResolvedModeResults{}, errors.NotImplementedf("method")
-	/* XXX
 	result := params.ResolvedModeResults{
 		Results: make([]params.ResolvedModeResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessUnit()
-	if err != nil {
-		return params.ResolvedModeResults{}, err
-	}
+	canAccess := accessAll // XXX CAAS access
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -102,8 +111,8 @@ func (f *Facade) Resolved(args params.Entities) (params.ResolvedModeResults, err
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = f.getUnit(tag)
+			var unit *state.CAASUnit
+			unit, err = f.getCAASUnit(tag)
 			if err == nil {
 				result.Results[i].Mode = params.ResolvedMode(unit.Resolved())
 			}
@@ -111,20 +120,14 @@ func (f *Facade) Resolved(args params.Entities) (params.ResolvedModeResults, err
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-	*/
 }
 
 // ClearResolved removes any resolved setting from each given unit.
 func (f *Facade) ClearResolved(args params.Entities) (params.ErrorResults, error) {
-	return params.ErrorResults{}, errors.NotImplementedf("method")
-	/* XXX
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
-	canAccess, err := f.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
+	canAccess := accessAll // XXX CAAS access
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
@@ -133,8 +136,8 @@ func (f *Facade) ClearResolved(args params.Entities) (params.ErrorResults, error
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = f.getUnit(tag)
+			var unit *state.CAASUnit
+			unit, err = f.getCAASUnit(tag)
 			if err == nil {
 				err = unit.ClearResolved()
 			}
@@ -142,7 +145,6 @@ func (f *Facade) ClearResolved(args params.Entities) (params.ErrorResults, error
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
-	*/
 }
 
 // Destroy advances all given Alive units' lifecycles as far as
@@ -577,11 +579,13 @@ func (f *Facade) WatchApplicationRelations(args params.Entities) (params.Strings
 // Relation returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
 func (f *Facade) Relation(args params.RelationUnits) (params.RelationResults, error) {
+
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.RelationUnits)),
 	}
 	canAccess := accessAll // XXX CAAS access checks
 	for i, rel := range args.RelationUnits {
+		logger.Debugf("in Facade.Relation, calling getOneRelation with rel.Relation=%v and rel.Unit=%v", rel.Relation, rel.Unit)
 		relParams, err := f.getOneRelation(canAccess, rel.Relation, rel.Unit)
 		if err == nil {
 			result.Results[i] = relParams
@@ -620,20 +624,27 @@ func (f *Facade) JoinedRelations(args params.Entities) (params.StringsResults, e
 	}
 	canRead := accessAll // XXX CAAS access checks
 	for i, entity := range args.Entities {
+		logger.Debugf("about to try parsing %v", entity.Tag)
 		tag, err := names.ParseUnitTag(entity.Tag)
+		logger.Debugf("got err=%v", err)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			//result.Results[i].Error = common.ServerError(common.ErrPerm)
+			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
 		err = common.ErrPerm
 		if canRead(tag) {
-			unit, err := f.getCAASUnit(tag)
+			var unit *state.CAASUnit
+			unit, err = f.getCAASUnit(tag)
+			logger.Debugf("got unit %v for tag %v (err=%v)", unit, tag, err)
 			if err == nil {
 				result.Results[i].Result, err = relationsInScopeTags(unit)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
+		logger.Debugf("result.Results[%d]=%v", i, result.Results[i])
 	}
+	logger.Debugf("at end of JoinedRelations, result=%v", result)
 	return result, nil
 }
 
@@ -641,6 +652,7 @@ func (f *Facade) JoinedRelations(args params.Entities) (params.StringsResults, e
 // for all of the given relation/unit pairs. See also
 // state.RelationUnit.EnterScope().
 func (f *Facade) EnterScope(args params.RelationUnits) (params.ErrorResults, error) {
+	logger.Debugf("EnterScope(%v)", args)
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -667,11 +679,16 @@ func (f *Facade) EnterScope(args params.RelationUnits) (params.ErrorResults, err
 		} else {
 			logger.Warningf("cannot set private-address for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
 		}
-		return relUnit.EnterScope(settings)
+		logger.Debugf("at end of one(), about to call relUnit.EnterScope with settings=%v", settings)
+		rv := relUnit.EnterScope(settings)
+		logger.Debugf("EnterScope returned %v", rv)
+		return rv
 	}
 	for i, arg := range args.RelationUnits {
+		logger.Debugf("EnterSCope: processing %v", arg.Unit)
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
+			logger.Debugf("got error parsing unit: %v", err)
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -866,14 +883,15 @@ func (f *Facade) getOneRelationById(relId int) (params.RelationResult, error) {
 	} else if err != nil {
 		return nothing, err
 	}
-	tag := f.auth.GetAuthTag()
-	switch tag.(type) {
-	case names.UnitTag:
-		// do nothing
-	default:
-		panic("authenticated entity is not a unit")
-	}
-	unit, err := f.st.FindEntity(tag)
+	// tag := f.auth.GetAuthTag()
+	// switch tag.(type) {
+	// case names.UnitTag:
+	// 	// do nothing
+	// default:
+	// 	panic("authenticated entity is not a unit")
+	// }
+	// MMCC TODO: why am i still seeing this panic?
+	unit, err := f.st.FindEntity(f.caasUnit.Tag())
 	if err != nil {
 		return nothing, err
 	}
@@ -890,29 +908,36 @@ func (f *Facade) getOneRelationById(relId int) (params.RelationResult, error) {
 }
 
 func (f *Facade) getRelationAndUnit(canAccess common.AuthFunc, relTag string, unitTag names.UnitTag) (*state.Relation, *state.CAASUnit, error) {
+	logger.Debugf("in getRelationAndUnit, about to ParseRelationTag(%v)", relTag)
 	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
+		logger.Errorf("error parsing relation tag:%v", err)
 		return nil, nil, common.ErrPerm
 	}
 	rel, err := f.st.KeyRelation(tag.Id())
 	if errors.IsNotFound(err) {
+		logger.Errorf("IsNotFound error getting KeyRelation:%v", err)
 		return nil, nil, common.ErrPerm
 	} else if err != nil {
 		return nil, nil, err
 	}
 	if !canAccess(unitTag) {
+		logger.Debugf("Can't access unittag(%v)", unitTag)
 		return nil, nil, common.ErrPerm
 	}
+	logger.Debugf("about to getCAASUnit(%v)", unitTag)
 	unit, err := f.getCAASUnit(unitTag)
 	return rel, unit, err
 }
 
 func (f *Facade) prepareRelationResult(rel *state.Relation, unit *state.CAASUnit) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
+	logger.Debugf("in prepareRelationResult, about to get endpoint for unit.ApplicationName()=%v", unit.ApplicationName())
 	ep, err := rel.Endpoint(unit.ApplicationName())
 	if err != nil {
 		// An error here means the unit's service is not part of the
 		// relation.
+
 		return nothing, err
 	}
 	return params.RelationResult{
@@ -929,10 +954,13 @@ func (f *Facade) prepareRelationResult(rel *state.Relation, unit *state.CAASUnit
 func (f *Facade) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	tag, err := names.ParseUnitTag(unitTag)
+	logger.Debugf("in getOneRelation, ParseUnitTag(%v) got tag: %v err=%v %s", unitTag, tag, err, debug.Stack())
 	if err != nil {
 		return nothing, common.ErrPerm
 	}
+	logger.Debugf("calling getRelationAndUnit():")
 	rel, unit, err := f.getRelationAndUnit(canAccess, relTag, tag)
+	logger.Debugf("getRelationAndUnit gave us err=%v", err)
 	if err != nil {
 		return nothing, err
 	}
@@ -1024,7 +1052,9 @@ func convertRelationSettings(settings map[string]interface{}) (params.Settings, 
 }
 
 func relationsInScopeTags(unit *state.CAASUnit) ([]string, error) {
+	logger.Debugf("^^ in relationsInScopeTags, calling unit.RelationsInScope()")
 	relations, err := unit.RelationsInScope()
+	logger.Debugf("^^ got relations=%v, err=%v", relations, err)
 	if err != nil {
 		return nil, err
 	}

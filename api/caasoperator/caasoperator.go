@@ -5,6 +5,7 @@ package caasoperator
 
 import (
 	"fmt"
+	"runtime/debug"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -201,7 +202,15 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // Relation returns the existing relation with the given tag.
 func (st *State) Relation(relationTag names.RelationTag) (*Relation, error) {
-	result, err := st.relation(relationTag, st.applicationTag)
+	logger.Debugf("api.caasoperator.State: Relation() called from %s", debug.Stack())
+	// MMCC TEMP: to test relations in the prototype, we hard-code
+	// a single unit per application
+	fakeCaasUnitTag, err := names.ParseUnitTag("unit-" + st.applicationTag.Id() + "/0")
+	if err != nil {
+		return nil, err
+	}
+	logger.Debugf("fakeCaasUnitTag is %v", fakeCaasUnitTag)
+	result, err := st.relation(relationTag, fakeCaasUnitTag)
 	if err != nil {
 		return nil, err
 	}
