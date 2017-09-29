@@ -10,6 +10,7 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v2"
 
+	"github.com/juju/juju/apiserver/caasprovisioner"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facades/agent/agent" // ModelUser Write
@@ -251,6 +252,8 @@ func AllFacades() *facade.Registry {
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UserManager", 1, usermanager.NewUserManagerAPI)
 	reg("UserManager", 2, usermanager.NewUserManagerAPI) // Adds ResetPassword
+
+	reg("CAASProvisioner", 1, caasprovisioner.NewFacade)
 
 	regRaw("AllWatcher", 1, NewAllWatcher, reflect.TypeOf((*SrvAllWatcher)(nil)))
 	// Note: AllModelWatcher uses the same infrastructure as AllWatcher

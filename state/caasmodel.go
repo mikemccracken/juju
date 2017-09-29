@@ -3,7 +3,10 @@
 
 package state
 
-import "github.com/juju/errors"
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
+)
 
 // CAASModel contains functionality that is specific to an
 // Containers-As-A-Service (CAAS) model. It embeds a Model so that
@@ -46,4 +49,32 @@ func (st *State) CAASModel() (*CAASModel, error) {
 		return nil, errors.Trace(err)
 	}
 	return im, nil
+}
+
+func (m *CAASModel) ProvisioningConfig() (params.CAASProvisioningConfig, error) {
+	cloud, err := m.st.Cloud(m.Cloud())
+	if err != nil {
+		return params.CAASProvisioningConfig{}, errors.Trace(err)
+	}
+
+	credentialTag, is_set := m.CloudCredential()
+	if !is_set {
+		return params.CAASProvisioningConfig{}, errors.Errorf("CAAS cloud with no CloudCredential set")
+	}
+
+	credential, err := m.st.CloudCredential(credentialTag)
+	if err != nil {
+		return params.CAASProvisioningConfig{}, errors.Trace(err)
+	}
+
+	credentialAttrs := credential.Attributes()
+
+	return params.CAASProvisioningConfig{
+		Endpoint:       cloud.Endpoint, // TODO(caas) fix this if region support is added
+		CACertificates: cloud.CACertificates,
+		CertData:       []byte(credentialAttrs["ClientCertificateData"]),
+		KeyData:        []byte(credentialAttrs["ClientKeyData"]),
+		Username:       credentialAttrs["Username"],
+		Password:       credentialAttrs["Password"],
+	}, nil
 }
