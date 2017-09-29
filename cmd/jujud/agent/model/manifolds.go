@@ -365,6 +365,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 		stateCleanerName: cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
+			ClockName:     clockName,
 		}),
 	}
 	result[remoteRelationsName] = remoterelations.Manifold(remoterelations.ManifoldConfig{
