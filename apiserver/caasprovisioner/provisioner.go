@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 	"github.com/juju/loggo"
 )
 
@@ -77,4 +78,18 @@ func (a *API) ProvisioningConfig() (params.CAASProvisioningConfig, error) {
 // that the current connection is for.
 func (a *API) ModelUUID() (params.StringResult, error) {
 	return params.StringResult{Result: a.state.ModelUUID()}, nil
+}
+
+// WatchApplications starts a StringsWatcher to watch applications deployed to
+// this model.
+func (a *API) WatchApplications(args params.WatchApplications) (params.StringsWatchResult, error) {
+	watch := a.state.WatchApplications()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: a.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return params.StringsWatchResult{}, watcher.EnsureErr(watch)
 }
