@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/authenticationworker"
+	"github.com/juju/juju/worker/caasprovisioner"
 	"github.com/juju/juju/worker/centralhub"
 	"github.com/juju/juju/worker/dblogpruner"
 	"github.com/juju/juju/worker/dependency"
@@ -714,4 +715,5 @@ const (
 	isControllerFlagName          = "is-controller-flag"
 	logPrunerName                 = "log-pruner"
 	txnPrunerName                 = "transaction-pruner"
+	caasProvisionerName           = "caas-provisioner"
 )

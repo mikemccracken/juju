@@ -135,7 +135,7 @@ func newOperatorConfig(appName string, st *apicaasprovisioner.State) ([]byte, er
 		return nil, errors.Trace(err)
 	}
 
-	confBytes, err := conf.Write()
+	confBytes, err := conf.Render()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
