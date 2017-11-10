@@ -5,7 +5,6 @@ package caasprovisioner
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v2"
 	"k8s.io/client-go/kubernetes"
 	k8serrors "k8s.io/client-go/pkg/api/errors"
@@ -14,8 +13,6 @@ import (
 
 	apicaasprovisioner "github.com/juju/juju/api/caasprovisioner"
 )
-
-var logger = loggo.GetLogger("juju.worker.caasprovisioner")
 
 // TODO(caas) should be using a juju specific namespace
 const namespace = "default"

@@ -115,8 +115,9 @@ var (
 	newUpgradeMongoWorker = mongoupgrader.New
 	reportOpenedState     = func(*state.State) {}
 
-	modelManifolds   = model.Manifolds
-	machineManifolds = machine.Manifolds
+	caasModelManifolds = model.CAASManifolds
+	modelManifolds     = model.Manifolds
+	machineManifolds   = machine.Manifolds
 )
 
 // Variable to override in tests, default is true
@@ -1246,6 +1247,45 @@ func (a *MachineAgent) startModelWorkers(controllerUUID, modelUUID string) (work
 		InstPollerAggregationDelay:  3 * time.Second,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
 		ActionPrunerInterval:        24 * time.Hour,
+		NewEnvironFunc:              newEnvirons,
+		NewMigrationMaster:          migrationmaster.NewWorker,
+	})
+	if err := dependency.Install(engine, manifolds); err != nil {
+		if err := worker.Stop(engine); err != nil {
+			logger.Errorf("while stopping engine with bad manifolds: %v", err)
+		}
+		return nil, errors.Trace(err)
+	}
+	return engine, nil
+}
+
+func (a *MachineAgent) startCAASModelWorkers(controllerUUID, modelUUID string) (worker.Worker, error) {
+	logger.Infof("starting CAAS workers for %s", modelUUID)
+
+	modelAgent, err := model.WrapAgent(a, controllerUUID, modelUUID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	engine, err := dependency.NewEngine(dependency.EngineConfig{
+		IsFatal:     model.IsFatal,
+		WorstError:  model.WorstError,
+		Filter:      model.IgnoreErrRemoved,
+		ErrorDelay:  3 * time.Second,
+		BounceDelay: 10 * time.Millisecond,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	manifolds := caasModelManifolds(model.ManifoldsConfig{
+		Agent:                       modelAgent,
+		AgentConfigChanged:          a.configChangedVal,
+		Clock:                       clock.WallClock,
+		RunFlagDuration:             time.Minute,
+		CharmRevisionUpdateInterval: 24 * time.Hour,
+		InstPollerAggregationDelay:  3 * time.Second,
+		StatusHistoryPrunerInterval: 5 * time.Minute,
 		NewEnvironFunc:              newEnvirons,
 		NewMigrationMaster:          migrationmaster.NewWorker,
 	})

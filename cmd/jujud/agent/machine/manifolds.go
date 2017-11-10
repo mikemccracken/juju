@@ -621,6 +621,13 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 				NewWorker:     txnpruner.New,
 			},
 		))),
+		caasProvisionerName: ifNotMigrating(ifPrimaryController(caasprovisioner.Manifold(
+			caasprovisioner.ManifoldConfig{
+				AgentName:          agentName,
+				APICallerName:      apiCallerName,
+				NewProvisionerFunc: caasprovisioner.New,
+			},
+		))),
 	}
 }
 
